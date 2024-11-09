@@ -1,4 +1,4 @@
-FROM golang:1.18.4
+FROM golang
 
 # set a build-time vriable 
 ARG DB=memdb

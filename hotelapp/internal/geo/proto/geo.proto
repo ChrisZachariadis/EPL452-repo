@@ -2,4 +2,19 @@ syntax = "proto3";
 
 package geo;
 
-// TODO: Implement me
+// Define the Geo service
+service Geo {
+  // RPC method to get nearby hotels based on a location
+  rpc Nearby(Request) returns (Result);
+}
+
+// Request message containing latitude and longitude
+message Request {
+  float lat = 1;
+  float lon = 2;
+}
+
+// Result message containing a list of nearby hotel IDs
+message Result {
+  repeated string hotelIds = 1;
+}

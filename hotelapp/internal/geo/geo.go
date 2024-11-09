@@ -44,6 +44,32 @@ func NewGeo(a string, p int, db *DatabaseSession, tr opentracing.Tracer) *Geo {
 // Run starts the server
 func (s *Geo) Run() error {
 	// TODO: Implement me
+	// Run starts the server
+	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.addr, s.port))
+	if err != nil {
+		return fmt.Errorf("failed to listen: %v", err)
+	}
+
+	serverOptions := []grpc.ServerOption{
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 5 * time.Minute,
+		}),
+	}
+
+	// Add OpenTracing interceptor for distributed tracing
+	if s.tracer != nil {
+		serverOptions = append(serverOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(s.tracer)))
+	}
+
+	grpcServer := grpc.NewServer(serverOptions...)
+	pb.RegisterGeoServer(grpcServer, s)
+
+	// Register reflection service on gRPC server to support reflection requests
+	reflection.Register(grpcServer)
+
+	log.Printf("Geo service listening on %s:%d", s.addr, s.port)
+	return grpcServer.Serve(lis)
+
 }
 
 // Nearby returns all hotels within a given distance.
@@ -51,6 +77,14 @@ func (s *Geo) Nearby(ctx context.Context, req *pb.Request) (*pb.Result, error) {
 	// TODO: Implement me
 	// HINT: Reuse the implementation from the monolithic implementation 
 	// HINT: and modify as needed.
+	points := s.getNearbyPoints(float64(req.Lat), float64(req.Lon))
+	res := &pb.Result{}
+
+	for _, p := range points {
+		res.HotelIds = append(res.HotelIds, p.Id())
+	}
+
+	return res, nil
 }
 
 func (s *Geo) getNearbyPoints(lat, lon float64) []geoindex.Point {

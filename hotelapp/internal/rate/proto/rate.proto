@@ -2,4 +2,33 @@ syntax = "proto3";
 
 package rate;
 
-// TODO: Implement me
+// Rate service to get hotel rate plans based on date range
+service Rate {
+  rpc GetRates(Request) returns (Result);
+}
+
+// Request message with hotel IDs and date range
+message Request {
+  repeated string hotelIds = 1;
+  string inDate = 2;
+  string outDate = 3;
+}
+
+// Result message containing a list of RatePlan
+message Result {
+  repeated RatePlan ratePlans = 1;
+}
+
+// RatePlan message with rate information
+message RatePlan {
+  string hotelId = 1;
+  string inDate = 2;
+  string outDate = 3;
+  RoomType roomType = 4;
+}
+
+// RoomType message with rate details
+message RoomType {
+  double totalRate = 1;
+  string description = 2;
+}

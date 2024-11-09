@@ -42,7 +42,6 @@ func NewSearch(a string, p int, geoaddr string, rateaddr string, t opentracing.T
 
 // Run starts the server
 func (s *Search) Run() error {
-	func (s *Search) Run() error {
 		if s.port == 0 {
 			return fmt.Errorf("server port must be set")
 		}
@@ -81,15 +80,26 @@ func (s *Search) Run() error {
 	
 		log.Printf("Start Search server. Addr: %s:%d\n", s.addr, s.port)
 		return srv.Serve(lis)
-	}
 }
 
 func (s *Search) initGeoClient() error {
 	// TODO: Implement me
+	conn, err := dialer.Dial(s.geoAddr, s.tracer)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Geo service: %v", err)
+	}
+	s.geoClient = geo.NewGeoClient(conn)
+	return nil
 }
 
 func (s *Search) initRateClient() error {
 	// TODO: Implement me
+	conn, err := dialer.Dial(s.rateAddr, s.tracer)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Rate service: %v", err)
+	}
+	s.rateClient = rate.NewRateClient(conn)
+	return nil
 }
 
 // Nearby returns ids of nearby hotels ordered by ranking algo
@@ -97,4 +107,32 @@ func (s *Search) Nearby(ctx context.Context, req *pb.NearbyRequest) (*pb.SearchR
 	// TODO: Implement me
 	// HINT: Reuse the implementation from the monolithic implementation 
 	// HINT: and modify as needed.
+	// Call the Geo service to find nearby hotels
+	geoRes, err := s.geoClient.Nearby(ctx, &geo.Request{
+		Lat: req.Lat,
+		Lon: req.Lon,
+	})
+	if err != nil {
+		log.Printf("Error calling Geo service: %v", err)
+		return nil, err
+	}
+
+	// Call the Rate service to get rates for the nearby hotels
+	rateRes, err := s.rateClient.GetRates(ctx, &rate.Request{
+		HotelIds: geoRes.HotelIds,
+		InDate:   req.InDate,
+		OutDate:  req.OutDate,
+	})
+	if err != nil {
+		log.Printf("Error calling Rate service: %v", err)
+		return nil, err
+	}
+
+	// Build the SearchResult response
+	searchResult := &pb.SearchResult{}
+	for _, ratePlan := range rateRes.RatePlans {
+		searchResult.HotelIds = append(searchResult.HotelIds, ratePlan.HotelId)
+	}
+
+	return searchResult, nil
 }
